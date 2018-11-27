@@ -7,8 +7,6 @@ public class User {
 	String password;
 	int authorization;
 	Drone drone = new Drone();
-
-
 	private final static int size = 10;
 	User[] user = new User[size];
 
@@ -66,6 +64,7 @@ public class User {
 	}
 
 	private void AdministratorWork() { // 관리자 권한으로 작업 실행
+		this.drone.limitarea.LoadLimitedArea();
 		Scanner sc = new Scanner(System.in);
 		int cmd = 0;
 		String setAddress = new String();
@@ -89,6 +88,10 @@ public class User {
 				break;
 
 			case 2:
+				if(this.drone.getLocation() == null) {
+					System.out.println("@ [안내] 드론 현재 위치부터 설정하세요!");
+					break;
+				}
 				System.out.println("===== 현재 위치로부터 목적지까지 최단거리와 소요 시간을 탐색합니다. =====");
 				System.out.print("> 목적지 주소를 입력하세요 : ");
 				destinationAddress = sc.nextLine();

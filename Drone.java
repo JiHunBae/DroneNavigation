@@ -6,6 +6,12 @@ public class Drone {
 	private String destination = new String(); // 도착 위치
 	// Calculation calculator = new Calculator();
 	LimitedArea limitarea = new LimitedArea();
+	long startTime = 0;
+	long arrivalTime = 0;
+
+	/*public Drone() {
+		this.limitarea.LoadLimitedArea();
+	}*/
 
 	public String getLocation() {
 		return Location;

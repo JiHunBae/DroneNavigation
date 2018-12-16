@@ -9,28 +9,26 @@ public class Drone {
 	long startTime = 0;
 	long arrivalTime = 0;
 
-	/*public Drone() {
-		this.limitarea.LoadLimitedArea();
-	}*/
-
-	public String getLocation() {
+	public String getLocation() { // 현재 위치 접근자
 		return Location;
 	}
 
-	public void setLocation(String location) {
+	public void setLocation(String location) { // 현재 위치 설정자
 		Location = location;
 	}
 
-	public String getDestination() {
+	public String getDestination() { // 도착 위치 접근자
 		return destination;
 	}
 
-	public void setDestination(String destination) {
+	public void setDestination(String destination) { // 도착 위치 설정자
 		this.destination = destination;
 	}
 
-	public void Search() {
+	public void Search(String start, String destination) { // 최단거리 탐색 메소드
 		// this.calculator(this.getLocation(), this.getDestination());
 	}
+
+
 
 }

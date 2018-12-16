@@ -1,4 +1,9 @@
 import java.io.*;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Scanner;
 
 public class LimitedArea {
@@ -6,42 +11,11 @@ public class LimitedArea {
 	String location; // 주소
 	private double longitude = 0.0; // 경도
 	private double latitude = 0.0; // 위도
-	private double radius = 0.0;
-	private static int size = 10;
-	private int used = 0;
+	private double radius = 0.0; // 비행금지구역 반지름(단위:m)
+	private static int size = 10; // 비행금지구역 최대개수
+	private int used = 0; //
 	Map map = new Map();
 	LimitedArea[] limitarea = new LimitedArea[size];
-
-	public void LoadLimitedArea() {
-		try {
-			File file = new File("LimitedArea.txt");
-			BufferedReader br = new BufferedReader(new InputStreamReader(new FileInputStream(file), "euc-kr"));
-			String line = br.readLine();
-			String[] line_split;
-			int index = 0;
-			for (int i = 0; i < size; ++i)
-				limitarea[i] = new LimitedArea();
-
-			while (line != null) {
-				if (used == size)
-					break;
-
-				line = line.toLowerCase();
-				line_split = line.split(",");
-				limitarea[index].setLocation(line_split[0]);
-				limitarea[index].setLongitude(this.map.get_longitude(limitarea[index].getLocation()));
-				limitarea[index].setLatitude(this.map.get_latitude(limitarea[index].getLocation()));
-				limitarea[index].setRadius(Double.parseDouble(line_split[1]));
-				++index;
-
-				line = br.readLine();
-			}
-
-			used = index;
-		} catch (IOException e) {
-			System.out.println("예외 처리");
-		}
-	}
 
 	public double getLongitude() { // 경도 접근자
 		return longitude;
@@ -67,75 +41,93 @@ public class LimitedArea {
 		this.radius = radius;
 	}
 
-	public String getLocation() {
+	public String getLocation() { // 장소 접근자
 		return location;
 	}
 
-	public void setLocation(String location) {
+	public void setLocation(String location) { // 장소 설정자
 		this.location = location;
 	}
 
-	public boolean AddLimitedArea(String limitLocation, double radius) {
-		if (used == size)
+	// 드론 비행 금지구역 추가 메소드
+	public boolean AddLimitedArea(String limitLocation, double radius) throws SQLException {
+		if (used == size) { // 비행 금지구역 목록이 꽉 찬 경우
+			System.out.println("@ [안내] 목록이 이미 꽉 차서 더 이상 비행 금지구역을 추가할 수 없습니다.");
 			return false;
-
-		for (int i = 0; i < used; ++i) {
-			if (limitLocation.equals(limitarea[i].getLocation())) // 이미 지정된 장소인 경우
+		}
+		// DB 연결 부분
+		Connection connect = DriverManager.getConnection("jdbc:sqlite:information.db");
+		Statement stat = connect.createStatement();
+		// DB 내부 테이블 연결 부분
+		ResultSet result = stat.executeQuery("select * from LimitedArea;");
+		while (result.next()) {
+			// 이미 추가된 금지구역인지 확인
+			if (limitLocation.equals(result.getString("location"))) {
+				// 이미 추가된 금지구역인 경우 비행 금지구역 추가 실패
+				System.out.println("@ [안내] 이미 금지구역 목록에 있는 장소입니다.");
+				result.close();
+				connect.close();
 				return false;
-		}
-
-		limitarea[used].setLocation(limitLocation);
-		limitarea[used].setLongitude(this.map.get_longitude(limitLocation));
-		limitarea[used].setLatitude(this.map.get_latitude(limitLocation));
-		limitarea[used].setRadius(radius);
-		++used;
-		return true;
-	}
-
-	public boolean DeleteLimitedArea() {
-		int deleteNumber = 0;
-		File file = new File("LimitedArea.txt");
-		while (true) {
-			this.PrintLimitedArea();
-			System.out.println("> 삭제할 비행 금지구역을 선택하세요 : ");
-			deleteNumber = sc.nextInt();
-			sc.nextLine();
-			if (0 < deleteNumber && deleteNumber < used + 1)
-				break;
-
-			System.out.println("@ [안내] 잘못입력했습니다.");
-		}
-
-		System.arraycopy(limitarea, deleteNumber, limitarea, deleteNumber - 1, (size - deleteNumber - 1));
-		limitarea[size-1].setLocation(null);
-		limitarea[size-1].setLongitude(0.0);
-		limitarea[size-1].setLatitude(0.0);
-		limitarea[size-1].setRadius(0.0);
-		--used;
-		try {
-			BufferedWriter bw = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(file), "euc-kr"));
-			for (int i = 0; i < size; ++i) {
-				if (limitarea[i].getLocation() != null) {
-					bw.write(limitarea[i].getLocation() + "," + Double.toString(limitarea[i].getRadius()));
-					bw.newLine();
-				}
 			}
-			bw.close();
-		} catch (IOException e) {
-			System.out.println("예외 처리");
 		}
-
+		double longitude = this.map.get_longitude(limitLocation); // 경도 반환 받음
+		double latitude = this.map.get_longitude(limitLocation); // 위도 반환 받음
+		stat.executeUpdate("insert into LimitedArea(location,longitude,latitude,radius) " + "values('" + limitLocation
+				+ "'," + longitude + "," + latitude + ", " + radius + ")"); // DB에 비행 금지구역 추가
+		System.out.println("> 금지구역 목록 업데이트를 성공하였습니다!!"); // 성공 출력문
+		++used; // 비행 금지구역 목록 개수 증가
+		result.close();
+		connect.close();
+		//DB연결 종료
 		return true;
 	}
 
-	public void PrintLimitedArea() {
-		this.LoadLimitedArea();
-		for (int i = 0; i < this.size; ++i) {
-			System.out.print("[" + (i + 1) + "]" + " 주소 : " + limitarea[i].getLocation() + ", 경도 : "
-					+ limitarea[i].getLongitude());
-			System.out.println(", 위도 : " + limitarea[i].getLatitude() + ", 반지름 : " + limitarea[i].getRadius() + "(m)");
+	// 비행 금지구역 삭제 메소드
+	public boolean DeleteLimitedArea() throws SQLException {
+		// 비행 금지구역 목록 출력후 주소를 입력받아 삭제하는 방식으로 실행한다
+		this.PrintLimitedArea(); // 비행 금지구역 목록 출력
+		// DB 연결 부분
+		Connection connect = DriverManager.getConnection("jdbc:sqlite:information.db");
+		Statement stat = connect.createStatement();
+		// DB 내부 테이블 연결 부분
+		ResultSet result = stat.executeQuery("select * from LimitedArea;");
+		System.out.print("> 삭제할 비행 금지구역의 주소를 입력하세요 (작업을 취소하고 싶으시면 '-1'을 입력해주세요) : ");
+		String deleteLocation = sc.nextLine();
+		if(deleteLocation.equals("-1")) // '-1' 입력시 비행 금지구역 삭제 ㅈ취소
+			return false;
+		stat.executeUpdate("delete from LimitedArea where (location=='" + deleteLocation + "')");
+		// DB에서 해당 주소에 대한 비행 금지구역 삭제
+		result.close();
+		connect.close();
+		// DB 연결 종료
+		return true;
+	}
+
+	public void PrintLimitedArea() throws SQLException {
+		// DB 연결 부분
+		Connection connect = DriverManager.getConnection("jdbc:sqlite:information.db");
+		Statement stat = connect.createStatement();
+		// DB 내부 테이블 연결 부분
+		ResultSet result = stat.executeQuery("select * from LimitedArea;");
+
+		// 비행 금지구역 목록을 출력한다(10개까지 출력 // 없는 경우에는 null과 0.0을 대신 출력)
+		for (int i = 1; i < 11; ++i) {
+			if (result.next()) {
+				// 비행 금지구역 목록을  출력
+				System.out.println("[" + i + "] 주소 : " + result.getString("location") + ", 경도 : "
+						+ result.getString("longitude") + ", 위도 : " + result.getString("latitude") + ", 반지름 : "
+						+ result.getString("radius") + "(m)");
+			} else {
+				// 비행 금지구역이 더 이상 없는 경우 해당 출력문을 출력
+				System.out.println(
+						"[" + i + "] 주소 : " + null + ", 경도 : " + 0.0 + ", 위도 : " + 0.0 + ", 반지름 : " + 0.0 + "(m)");
+			}
 		}
-		System.out.println("");
+		System.out.println(""); // 줄바꿈
+
+		result.close();
+		connect.close();
+		// DB 연결 종료
 	}
 
 }
